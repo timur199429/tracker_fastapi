@@ -12,10 +12,10 @@ import urllib.parse
 safe_pass = urllib.parse.quote_plus(os.getenv('DB_PASS'))
 
 # ──────────────────  НАСТРОЙ MySQL  ──────────────────
-DB_URL = f"mysql+pymysql://gen_user:{safe_pass}@{os.getenv('DB_HOST')}:3306/default_db"
+database_url = f"mysql+pymysql://gen_user:{safe_pass}@{os.getenv('DB_HOST')}:3306/default_db"
 
 
-engine = create_engine(DB_URL, pool_recycle=280, echo=False)
+engine = create_engine(database_url, echo=False)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 

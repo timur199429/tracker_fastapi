@@ -5,6 +5,8 @@ from sqlalchemy import (
     Column, Integer, String, Text, DateTime, create_engine
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy.sql import func
+
 import datetime as dt
 import os
 
@@ -22,7 +24,7 @@ Base = declarative_base()
 class Visit(Base):
     __tablename__ = "visits"
     id           = Column(Integer, primary_key=True)
-    ts           = Column(DateTime, default=dt.datetime.now(tz=dt.timezone(dt.timedelta(hours=3))), index=True)
+    ts           = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     ip           = Column(String(45))
     user_agent   = Column(Text)
     utm_source   = Column(String(100))

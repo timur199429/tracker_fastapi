@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -16,6 +16,11 @@ app.add_middleware(
 class ContactForm(BaseModel):
     name: str
     phone: str
+    utm_source: str = ""
+    utm_medium: str = ""
+    utm_campaign: str = ""
+    utm_content: str = ""
+    utm_term: str = ""
 
 # загрушка
 @app.get("/")
@@ -24,11 +29,12 @@ def index():
 
 # 📬 Обработчик POST-запроса
 @app.post("/api/contact")
-async def submit_contact(form: ContactForm):
-    # 🔧 Тут можно сохранить в базу, логировать, отправить письмо и т.д.
-    print(f"Получена заявка: имя = {form.name}, телефон = {form.phone}")
-
-    return {"status": "ok", "message": "Контакт получен"}
+async def submit_contact(form: ContactForm, request: Request):
+    user_agent = request.headers.get("user-agent")
+    print(f"Заявка от: {form.name}, {form.phone}")
+    print("UTM:", form.utm_source, form.utm_medium, form.utm_campaign)
+    print("User-Agent:", user_agent)
+    return {"status": "ok"}
 
 # if __name__ == '__main__':
 #     import uvicorn

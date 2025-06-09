@@ -31,9 +31,11 @@ def index():
 @app.post("/api/contact")
 async def submit_contact(form: ContactForm, request: Request):
     user_agent = request.headers.get("user-agent")
+    user_ip = request.headers.get('x-real-ip')
     print(f"Заявка от: {form.name}, {form.phone}")
     print("UTM:", form.utm_source, form.utm_medium, form.utm_campaign)
     print("User-Agent:", user_agent)
+    print("User IP:", user_ip)
     return {"status": "ok"}
 
 # if __name__ == '__main__':

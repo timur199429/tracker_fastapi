@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Форма регистрации</title>
+  <title>Форма заявки</title>
   <style>
     body {
       font-family: sans-serif;
@@ -50,31 +50,42 @@
   </form>
 
   <script>
-document.getElementById("contactForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = e.target.name.value;
-  const phone = e.target.phone.value;
-  const utms = getUTMs();
+    function getUTMs() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        utm_source: params.get("utm_source") || "",
+        utm_medium: params.get("utm_medium") || "",
+        utm_campaign: params.get("utm_campaign") || "",
+        utm_content: params.get("utm_content") || "",
+        utm_term: params.get("utm_term") || "",
+      };
+    }
 
-  const payload = {
-    name,
-    phone,
-    ...utms
-  };
+    document.getElementById("contactForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = e.target.name.value.trim();
+      const phone = e.target.phone.value.trim();
+      const utms = getUTMs();
 
-  try {
-    await fetch("https://timur199429-tracker-fastapi-1665.twc1.net/api/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      const payload = {
+        name,
+        phone,
+        ...utms,
+      };
+
+      try {
+        await fetch("https://timur199429-tracker-fastapi-1665.twc1.net/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        window.location.href = "./success.html";
+      } catch (err) {
+        console.error("Ошибка при отправке формы:", err);
+        alert("Не удалось отправить данные. Попробуйте позже.");
+      }
     });
-
-    window.location.href = "./success.html";
-  } catch (err) {
-    console.error("Ошибка:", err);
-    alert("Ошибка при отправке формы");
-  }
-});
   </script>
 </body>
 </html>

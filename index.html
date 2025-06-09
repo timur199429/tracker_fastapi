@@ -50,6 +50,8 @@
   </form>
 
   <script>
+    const BACKEND = "https://timur199429-tracker-fastapi-1665.twc1.net"; // <-- Укажи нужный
+
     function getUTMs() {
       const params = new URLSearchParams(window.location.search);
       return {
@@ -61,20 +63,31 @@
       };
     }
 
+    // 1️⃣ Отправка визита
+    window.addEventListener("DOMContentLoaded", () => {
+      fetch(`${BACKEND}/api/visit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getUTMs()),
+      }).catch(console.error);
+    });
+
+    // 2️⃣ Отправка формы
     document.getElementById("contactForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const name = e.target.name.value.trim();
       const phone = e.target.phone.value.trim();
-      const utms = getUTMs();
+      const { utm_term } = getUTMs(); // ⬅️ Только utm_term нужен для /api/contact
 
       const payload = {
         name,
         phone,
-        ...utms,
+        utm_term,
       };
 
       try {
-        await fetch("https://timur199429-tracker-fastapi-1665.twc1.net/api/contact", {
+        await fetch(`${BACKEND}/api/lead`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

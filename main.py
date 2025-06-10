@@ -2,12 +2,9 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, create_engine
+    Column, Integer, String, Text, DateTime, create_engine, text
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from sqlalchemy.sql import func
-
-import datetime as dt
 import os
 
 
@@ -24,7 +21,7 @@ Base = declarative_base()
 class Visit(Base):
     __tablename__ = "visits"
     id           = Column(Integer, primary_key=True)
-    ts           = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    ts           = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), index=True)
     ip           = Column(String(45))
     user_agent   = Column(Text)
     utm_source   = Column(String(100))
@@ -41,6 +38,17 @@ class Lead(Base):
     phone        = Column(String(50))
     utm_term     = Column(String(100))
 
+class OneprofitClickback(Base):
+    __tablename__ = "oneprofit_clickback"
+    id           = Column(Integer, primary_key=True)
+    amount       = Column(String(100))
+    stream       = Column(String(100))
+    subid1       = Column(String(100))
+    subid2       = Column(String(100))
+    subid3       = Column(String(100))
+    subid4       = Column(String(100))
+    subid5       = Column(String(100))
+    order_id     = Column(String(100))
 
 
 # ──────────────  создаём таблицы, если их нет  ─────────────
@@ -70,6 +78,8 @@ class UTM(BaseModel):
 class ContactForm(UTM):
     name: str
     phone: str
+
+
 
 
 # ────────────────  DEP: сессия БД на запрос  ─────────────
@@ -114,6 +124,32 @@ async def submit_contact(form: ContactForm,
     db.add(lead)
     db.commit()
     return {"status": "ok", "id": lead.id}
+
+@app.get("/api/oneprofit/clickback")
+async def oneprofit_clickback(request: Request, 
+                              db: Session = Depends(get_db)):
+    params = request.query_params
+    amount = params.get('amount','')
+    stream = params.get('stream','')
+    subid1 = params.get('subid1','')
+    subid2 = params.get('subid2','')
+    subid3 = params.get('subid3','')
+    subid4 = params.get('subid4','')
+    subid5 = params.get('subid5','')
+    order_id = params.get('order_id','')
+    clickback = OneprofitClickback(
+        amount=amount,
+        stream=stream,
+        subid1=subid1,
+        subid2=subid2,
+        subid3=subid3,
+        subid4=subid4,
+        subid5=subid5,
+        order_id=order_id
+    )
+    db.add(clickback)
+    db.commit()
+    return {"status": f"ok, order id: {order_id}"}
 
 
 # ────────────────────  health‑check  ─────────────────────

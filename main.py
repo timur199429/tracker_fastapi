@@ -58,9 +58,7 @@ class OneprofitPostback(Base):
     stream       = Column(String(100))
     subid1       = Column(String(100))
     subid2       = Column(String(100))
-    subid3       = Column(String(100))
-    subid4       = Column(String(100))
-    subid5       = Column(String(100))
+    created_at   = Column(String(150))
     order_id     = Column(String(100))
 
 # ──────────────  создаём таблицы, если их нет  ─────────────
@@ -91,6 +89,21 @@ class ContactForm(UTM):
     name: str
     phone: str
 
+# class Oneprofit(BaseModel):
+#     amount: str = ""
+#     stream: str = ""
+#     subid1: str = ""
+#     subid2: str = ""
+#     order_id: str = ""
+
+# class OneprofitClickback(Oneprofit):
+#     subid3: str = ""
+#     subid4: str = ""
+#     subid5: str = ""
+
+# class OneprofitPostback(Oneprofit):
+#     created_at: str = ""
+#     status: str = ""
 
 
 
@@ -138,7 +151,7 @@ async def submit_contact(form: ContactForm,
     return {"status": "ok", "id": lead.id}
 
 @app.get("/api/oneprofit/clickback")
-async def oneprofit_clickback(request: Request, 
+async def oneprofit_clickback(request: Request,
                               db: Session = Depends(get_db)):
     params = request.query_params
     amount = params.get('amount','')
@@ -162,6 +175,8 @@ async def oneprofit_clickback(request: Request,
     db.add(clickback)
     db.commit()
     return {"status": f"ok, order id: {order_id}"}
+
+
 
 @app.get("/api/oneprofit/postback")
 async def oneprofit_clickback(request: Request, 

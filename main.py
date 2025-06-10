@@ -50,6 +50,18 @@ class OneprofitClickback(Base):
     subid5       = Column(String(100))
     order_id     = Column(String(100))
 
+class OneprofitPostback(Base):
+    __tablename__ = "oneprofit_postback"
+    id           = Column(Integer, primary_key=True)
+    amount       = Column(String(100))
+    status       = Column(String(100))
+    stream       = Column(String(100))
+    subid1       = Column(String(100))
+    subid2       = Column(String(100))
+    subid3       = Column(String(100))
+    subid4       = Column(String(100))
+    subid5       = Column(String(100))
+    order_id     = Column(String(100))
 
 # ──────────────  создаём таблицы, если их нет  ─────────────
 Base.metadata.create_all(bind=engine)
@@ -151,6 +163,29 @@ async def oneprofit_clickback(request: Request,
     db.commit()
     return {"status": f"ok, order id: {order_id}"}
 
+@app.get("/api/oneprofit/postback")
+async def oneprofit_clickback(request: Request, 
+                              db: Session = Depends(get_db)):
+    params = request.query_params
+    amount = params.get('amount','')
+    status = params.get('status','')
+    stream = params.get('stream','')
+    subid1 = params.get('subid1','')
+    subid2 = params.get('subid2','')
+    created_at = params.get('created_at','')
+    order_id = params.get('order_id','')
+    postback = OneprofitPostback(
+        amount=amount,
+        status=status,
+        stream=stream,
+        subid1=subid1,
+        subid2=subid2,
+        order_id=order_id,
+        created_at=created_at
+    )
+    db.add(postback)
+    db.commit()
+    return {"status": f"ok, order id: {order_id}"}
 
 # ────────────────────  health‑check  ─────────────────────
 @app.get("/")

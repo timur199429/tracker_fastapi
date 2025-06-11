@@ -30,6 +30,7 @@ class Visit(Base):
     utm_content  = Column(String(100))
     utm_term     = Column(String(100), index=True)
     utm_cpc      = Column(String(100))
+    utm_url      = Column(String(600))
 
 
 class Lead(Base):
@@ -85,6 +86,7 @@ class UTM(BaseModel):
     utm_content: str = ""
     utm_term: str = ""
     utm_cpc: str = ""
+    utm_url: str = ""
 
 
 class ContactForm(UTM):
@@ -118,7 +120,8 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         utm_campaign=data.utm_campaign,
         utm_content=data.utm_content,
         utm_term=data.utm_term,
-        utm_cpc=data.utm_cpc
+        utm_cpc=data.utm_cpc,
+        utm_url=data.utm_url
     )
     db.add(visit)
     db.commit()

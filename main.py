@@ -28,7 +28,8 @@ class Visit(Base):
     utm_medium   = Column(String(100))
     utm_campaign = Column(String(100))
     utm_content  = Column(String(100))
-    utm_term     = Column(String(100))
+    utm_term     = Column(String(100), index=True)
+    utm_cpc      = Column(String(100))
 
 
 class Lead(Base):
@@ -36,7 +37,7 @@ class Lead(Base):
     id           = Column(Integer, primary_key=True)
     name         = Column(String(100))
     phone        = Column(String(50))
-    utm_term     = Column(String(100))
+    utm_term     = Column(String(100), index=True)
 
 class OneprofitClickback(Base):
     __tablename__ = "oneprofit_clickback"
@@ -83,27 +84,13 @@ class UTM(BaseModel):
     utm_campaign: str = ""
     utm_content: str = ""
     utm_term: str = ""
+    utm_cpc: str = ""
 
 
 class ContactForm(UTM):
     name: str
     phone: str
 
-# class Oneprofit(BaseModel):
-#     amount: str = ""
-#     stream: str = ""
-#     subid1: str = ""
-#     subid2: str = ""
-#     order_id: str = ""
-
-# class OneprofitClickback(Oneprofit):
-#     subid3: str = ""
-#     subid4: str = ""
-#     subid5: str = ""
-
-# class OneprofitPostback(Oneprofit):
-#     created_at: str = ""
-#     status: str = ""
 
 
 
@@ -131,6 +118,7 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         utm_campaign=data.utm_campaign,
         utm_content=data.utm_content,
         utm_term=data.utm_term,
+        utm_cpc=data.utm_cpc
     )
     db.add(visit)
     db.commit()

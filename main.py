@@ -171,13 +171,13 @@ async def postback(request: Request,
     network = params.get('network','')
     click_id = params.get('click_id','')
     status = params.get('status','')
-    clickback = Postback(
+    postback = Postback(
         amount=amount,
         network=network,
         click_id=click_id,
         status=status
     )
-    db.add(clickback)
+    db.add(postback)
     db.commit()
     return {"status": "ok"}
 

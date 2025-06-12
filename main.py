@@ -6,6 +6,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import os
+import httpx
 
 
 # ──────────────────  НАСТРОЙ MySQL  ──────────────────
@@ -117,7 +118,7 @@ def get_db():
 # ─────────────────────  /api/visit  ──────────────────────
 @app.post("/api/visit")
 async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)):
-    ip = request.headers.get("x-real-ip") or request.client.host
+    ip = request.headers.get("x-real-ip", "")
     ua = request.headers.get("user-agent", "")
     language = request.headers.get("accept-language", "")
 

@@ -31,6 +31,11 @@ class Visit(Base):
     utm_term     = Column(String(100), index=True)
     utm_cpc      = Column(String(100))
     utm_url      = Column(String(600))
+    content      = Column(String(100))
+    country      = Column(String(100))
+    city         = Column(String(100))
+    language     = Column(String(100))
+
 
 
 class Lead(Base):
@@ -87,6 +92,10 @@ class UTM(BaseModel):
     utm_term: str = ""
     utm_cpc: str = ""
     utm_url: str = ""
+    content: str = ""
+    country: str = ""
+    city: str = ""
+    language: str = ""
 
 
 class ContactForm(UTM):
@@ -111,6 +120,7 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
     # IP: учитываем прокси / CDN
     ip = request.headers.get("x-real-ip", "")
     ua = request.headers.get("user-agent", "")
+    language = request.headers.get("accept-language", "")
 
     visit = Visit(
         ip=ip,
@@ -121,7 +131,11 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         utm_content=data.utm_content,
         utm_term=data.utm_term,
         utm_cpc=data.utm_cpc,
-        utm_url=data.utm_url
+        utm_url=data.utm_url,
+        content=data.content,
+        country=data.country,
+        city=data.city,
+        language=language
     )
     db.add(visit)
     db.commit()

@@ -117,10 +117,21 @@ def get_db():
 # ─────────────────────  /api/visit  ──────────────────────
 @app.post("/api/visit")
 async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)):
-    # IP: учитываем прокси / CDN
-    ip = request.headers.get("x-real-ip", "")
+    ip = request.headers.get("x-real-ip") or request.client.host
     ua = request.headers.get("user-agent", "")
     language = request.headers.get("accept-language", "")
+
+    # Запрос к ipapi.co
+    country = city = None
+    try:
+        async with httpx.AsyncClient() as client:
+            geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
+            if geo_resp.status_code in (200, 201, 202, 203, 204):
+                geo = geo_resp.json()
+                country = geo.get("country_name")
+                city = geo.get("city")
+    except Exception as e:
+        print(f"Geo lookup failed: {e}")
 
     visit = Visit(
         ip=ip,
@@ -133,8 +144,8 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         utm_cpc=data.utm_cpc,
         utm_url=data.utm_url,
         content=data.content,
-        country=data.country,
-        city=data.city,
+        country=country,
+        city=city,
         language=language
     )
     db.add(visit)

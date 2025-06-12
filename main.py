@@ -37,6 +37,15 @@ class Visit(Base):
     city         = Column(String(100))
     language     = Column(String(100))
 
+class Postback(Base):
+    __tablename__ = "postback"
+    id = Column(Integer, primary_key=True)
+    ts = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), index=True)
+    amount = Column(String(100))
+    network = Column(String(100))
+    click_id = Column(String(100))
+    status = Column(String(100))
+
 
 
 class Lead(Base):
@@ -123,7 +132,7 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
     language = request.headers.get("accept-language", "")
 
     # Запрос к ipapi.co
-    country = city = None
+    country = city = country_call_code = None
     try:
         async with httpx.AsyncClient() as client:
             geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
@@ -131,6 +140,7 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
                 geo = geo_resp.json()
                 country = geo.get("country")
                 city = geo.get("city")
+                country_call_code = geo.get("country_calling_code")
     except Exception as e:
         print(f"Geo lookup failed: {e}")
 
@@ -152,6 +162,15 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
     db.add(visit)
     db.commit()
     return {"status": "ok", "id": visit.id}
+
+@app.get('/api/postback')
+async def postback(request: Request,
+                   db: Session = Depends(get_db)):
+    params = request.query_params
+    amount = params.get('amount','')
+    network = params.get('network','')
+    click_id = params.get('click_id','')
+    status = params.get('status','')
 
 
 # ────────────────────  /api/contact  ─────────────────────

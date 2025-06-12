@@ -129,7 +129,7 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
             geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
             if geo_resp.status_code in (200, 201, 202, 203, 204):
                 geo = geo_resp.json()
-                country = geo.get("country_name")
+                country = geo.get("country")
                 city = geo.get("city")
     except Exception as e:
         print(f"Geo lookup failed: {e}")

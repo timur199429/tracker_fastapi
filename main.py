@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, create_engine, text
@@ -8,6 +9,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
 import os
 import httpx
+import asyncio
 
 
 # ──────────────────  НАСТРОЙ MySQL  ──────────────────
@@ -120,10 +122,15 @@ def get_db():
     finally:
         db.close()
 
-# @app.get("/redirect/")
-# async def redirect(request: Request, db: Session = Depends(get_db)):
-#     db.query(Visit).select()
-#     pass
+@app.get("/redirect/")
+async def redirect(request: Request, db: Session = Depends(get_db)):
+    utm_content = request.query_params.get('utm_content')
+    utm_term = request.query_params.get('utm_term')
+
+    url = f'https://eolnm.bestaffaiirs.net/?utm_source=da57dc555e50572d&ban=push&j1=1&s1=15344&s2=2135046&s3={utm_content}&s5={utm_term}&click_id={utm_term}'
+    utms = UTM(**request.query_params)
+    asyncio.create_task(track_visit(utms, request, db))
+    return RedirectResponse(url)
 
 # ─────────────────────  /api/visit  ──────────────────────
 @app.post("/api/visit")
@@ -177,6 +184,10 @@ async def postback(request: Request, db: Session = Depends(get_db)):
     network = params.get('network')
     click_id = params.get('click_id')
 
+    # Валидация параметров
+    if not all([amount, network, click_id]):
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="Missing required parameters")
+
     try:
         clickback = Clickback(
             amount=amount,
@@ -213,3 +224,8 @@ async def submit_contact(form: ContactForm,
 @app.get("/")
 def index():
     return {"hello": "world"}
+
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

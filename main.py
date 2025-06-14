@@ -177,17 +177,13 @@ async def postback(request: Request, db: Session = Depends(get_db)):
     network = params.get('network')
     click_id = params.get('click_id')
 
-    # Валидация параметров
-    if not all([amount, network, click_id]):
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="Missing required parameters")
-
     try:
-        postback = Clickback(
+        clickback = Clickback(
             amount=amount,
             network=network,
             click_id=click_id
         )
-        db.add(postback)
+        db.add(clickback)
         db.commit()
         return {"status": "ok"}
 

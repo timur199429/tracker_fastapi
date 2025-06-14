@@ -2,3 +2,4 @@ venv/
 .env
 my_s3/
 .DS_Store
+main.ipynb

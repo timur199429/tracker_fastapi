@@ -36,6 +36,7 @@ class Visit(Base):
     country      = Column(String(100))
     city         = Column(String(100))
     language     = Column(String(100))
+    platform     = Column(String(100))
 
 class Postback(Base):
     __tablename__ = "postback"
@@ -67,16 +68,6 @@ class OneprofitClickback(Base):
     subid5       = Column(String(100))
     order_id     = Column(String(100))
 
-class OneprofitPostback(Base):
-    __tablename__ = "oneprofit_postback"
-    id           = Column(Integer, primary_key=True)
-    amount       = Column(String(100))
-    status       = Column(String(100))
-    stream       = Column(String(100))
-    subid1       = Column(String(100))
-    subid2       = Column(String(100))
-    created_at   = Column(String(150))
-    order_id     = Column(String(100))
 
 # ──────────────  создаём таблицы, если их нет  ─────────────
 Base.metadata.create_all(bind=engine)
@@ -106,6 +97,7 @@ class UTM(BaseModel):
     country: str = ""
     city: str = ""
     language: str = ""
+    platform: str = ""
 
 
 class ContactForm(UTM):
@@ -123,6 +115,10 @@ def get_db():
     finally:
         db.close()
 
+# @app.get("/redirect/")
+# async def redirect(request: Request, db: Session = Depends(get_db)):
+#     db.query(Visit).select()
+#     pass
 
 # ─────────────────────  /api/visit  ──────────────────────
 @app.post("/api/visit")
@@ -130,19 +126,25 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
     ip = request.headers.get("x-real-ip", "")
     ua = request.headers.get("user-agent", "")
     language = request.headers.get("accept-language", "")
+    platform = request.headers.get("sec-ch-ua-platform", "")
 
     # Запрос к ipapi.co
     country = city = country_call_code = None
-    try:
-        async with httpx.AsyncClient() as client:
-            geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
-            if geo_resp.status_code in (200, 201, 202, 203, 204):
-                geo = geo_resp.json()
-                country = geo.get("country")
-                city = geo.get("city")
-                country_call_code = geo.get("country_calling_code")
-    except Exception as e:
-        print(f"Geo lookup failed: {e}")
+    # нужно добавить еще один сервис на всякий случай
+    # try:
+    #     async with httpx.AsyncClient() as client:
+    #         geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
+    #         geo_resp2 = None
+    #         if geo_resp.status_code in (200, 201, 202, 203, 204):
+    #             geo = geo_resp.json()
+    #             country = geo.get("country")
+    #             city = geo.get("city")
+    #             country_call_code = geo.get("country_calling_code")
+    #         else:
+    #             pass
+            
+    # except Exception as e:
+    #     print(f"Geo lookup failed: {e}")
 
     visit = Visit(
         ip=ip,
@@ -157,7 +159,8 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         content=data.content,
         country=country,
         city=city,
-        language=language
+        language=language,
+        platform=platform
     )
     db.add(visit)
     db.commit()
@@ -223,35 +226,8 @@ async def oneprofit_clickback(request: Request,
 
 
 
-@app.get("/api/oneprofit/postback")
-async def oneprofit_clickback(request: Request, 
-                              db: Session = Depends(get_db)):
-    params = request.query_params
-    amount = params.get('amount','')
-    status = params.get('status','')
-    stream = params.get('stream','')
-    subid1 = params.get('subid1','')
-    subid2 = params.get('subid2','')
-    created_at = params.get('created_at','')
-    order_id = params.get('order_id','')
-    postback = OneprofitPostback(
-        amount=amount,
-        status=status,
-        stream=stream,
-        subid1=subid1,
-        subid2=subid2,
-        order_id=order_id,
-        created_at=created_at
-    )
-    db.add(postback)
-    db.commit()
-    return {"status": f"ok, order id: {order_id}"}
 
 # ────────────────────  health‑check  ─────────────────────
 @app.get("/")
 def index():
     return {"hello": "world"}
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)

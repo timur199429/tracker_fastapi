@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, create_engine, text
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from starlette.status import HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
 import os
 import httpx
 
@@ -33,8 +34,6 @@ class Visit(Base):
     utm_cpc      = Column(String(100))
     utm_url      = Column(String(600))
     content      = Column(String(100))
-    country      = Column(String(100))
-    city         = Column(String(100))
     language     = Column(String(100))
     platform     = Column(String(100))
 
@@ -46,6 +45,14 @@ class Postback(Base):
     network = Column(String(100))
     click_id = Column(String(100))
     status = Column(String(100))
+
+class Clickback(Base):
+    __tablename__ = "clickback"
+    id = Column(Integer, primary_key=True)
+    ts = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), index=True)
+    amount = Column(String(100))
+    network = Column(String(100))
+    click_id = Column(String(100))
 
 
 
@@ -94,8 +101,6 @@ class UTM(BaseModel):
     utm_cpc: str = ""
     utm_url: str = ""
     content: str = ""
-    country: str = ""
-    city: str = ""
     language: str = ""
     platform: str = ""
 
@@ -128,23 +133,6 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
     language = request.headers.get("accept-language", "")
     platform = request.headers.get("sec-ch-ua-platform", "")
 
-    # Запрос к ipapi.co
-    country = city = country_call_code = None
-    # нужно добавить еще один сервис на всякий случай
-    # try:
-    #     async with httpx.AsyncClient() as client:
-    #         geo_resp = await client.get(f"https://ipapi.co/{ip}/json/")
-    #         geo_resp2 = None
-    #         if geo_resp.status_code in (200, 201, 202, 203, 204):
-    #             geo = geo_resp.json()
-    #             country = geo.get("country")
-    #             city = geo.get("city")
-    #             country_call_code = geo.get("country_calling_code")
-    #         else:
-    #             pass
-            
-    # except Exception as e:
-    #     print(f"Geo lookup failed: {e}")
 
     visit = Visit(
         ip=ip,
@@ -157,8 +145,6 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         utm_cpc=data.utm_cpc,
         utm_url=data.utm_url,
         content=data.content,
-        country=country,
-        city=city,
         language=language,
         platform=platform
     )
@@ -184,6 +170,32 @@ async def postback(request: Request,
     db.commit()
     return {"status": "ok"}
 
+@app.get('/api/clickback')
+async def postback(request: Request, db: Session = Depends(get_db)):
+    params = request.query_params
+    amount = params.get('amount')
+    network = params.get('network')
+    click_id = params.get('click_id')
+
+    # Валидация параметров
+    if not all([amount, network, click_id]):
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="Missing required parameters")
+
+    try:
+        postback = Clickback(
+            amount=amount,
+            network=network,
+            click_id=click_id
+        )
+        db.add(postback)
+        db.commit()
+        return {"status": "ok"}
+
+    except Exception as e:
+        # Можно логировать ошибку
+        # logger.error(f"Failed to process clickback: {e}")
+        raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail="Server error")
+
 
 # ────────────────────  /api/contact  ─────────────────────
 @app.post("/api/lead")
@@ -197,32 +209,6 @@ async def submit_contact(form: ContactForm,
     db.add(lead)
     db.commit()
     return {"status": "ok", "id": lead.id}
-
-@app.get("/api/oneprofit/clickback")
-async def oneprofit_clickback(request: Request,
-                              db: Session = Depends(get_db)):
-    params = request.query_params
-    amount = params.get('amount','')
-    stream = params.get('stream','')
-    subid1 = params.get('subid1','')
-    subid2 = params.get('subid2','')
-    subid3 = params.get('subid3','')
-    subid4 = params.get('subid4','')
-    subid5 = params.get('subid5','')
-    order_id = params.get('order_id','')
-    clickback = OneprofitClickback(
-        amount=amount,
-        stream=stream,
-        subid1=subid1,
-        subid2=subid2,
-        subid3=subid3,
-        subid4=subid4,
-        subid5=subid5,
-        order_id=order_id
-    )
-    db.add(clickback)
-    db.commit()
-    return {"status": f"ok, order id: {order_id}"}
 
 
 

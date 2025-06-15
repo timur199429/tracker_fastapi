@@ -55,6 +55,10 @@ class Clickback(Base):
     amount = Column(String(100))
     network = Column(String(100))
     click_id = Column(String(100))
+    teaser_id = Column(String(100))
+    campaign_id = Column(String(100))
+    site_id = Column(String(100))
+    source_id = Column(String(100))
 
 
 
@@ -183,16 +187,20 @@ async def postback(request: Request, db: Session = Depends(get_db)):
     amount = params.get('amount')
     network = params.get('network')
     click_id = params.get('click_id')
-
-    # Валидация параметров
-    if not all([amount, network, click_id]):
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="Missing required parameters")
+    teaser_id = params.get('teaser_id')
+    site_id = params.get('site_id')
+    source_id = params.get('source_id')
+    campaign_id = params.get('campaign_id')
 
     try:
         clickback = Clickback(
             amount=amount,
             network=network,
-            click_id=click_id
+            click_id=click_id,
+            teaser_id=teaser_id,
+            campaign_id=campaign_id,
+            site_id=site_id,
+            source_id=source_id
         )
         db.add(clickback)
         db.commit()

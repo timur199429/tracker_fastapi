@@ -1,9 +1,11 @@
+import random
+import time
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, create_engine, text
+    Column, Integer, String, Text, DateTime, create_engine, func, select, text
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
@@ -29,12 +31,12 @@ class Visit(Base):
     ip           = Column(String(45))
     user_agent   = Column(Text)
     utm_source   = Column(String(100))
-    utm_medium   = Column(String(100))
-    utm_campaign = Column(String(100))
-    utm_content  = Column(String(100))
-    utm_term     = Column(String(100), index=True)
-    utm_cpc      = Column(String(100))
-    utm_url      = Column(String(600))
+    site_id      = Column(String(100))
+    campaign_id  = Column(String(100))
+    teaser_id    = Column(String(100))
+    click_id     = Column(String(100), index=True)
+    cpc          = Column(String(100))
+    url          = Column(String(600))
     content      = Column(String(100))
     language     = Column(String(100))
     platform     = Column(String(100))
@@ -60,6 +62,15 @@ class Clickback(Base):
     site_id = Column(String(100))
     source_id = Column(String(100))
 
+class Urls(Base):
+    __tablename__ = "urls"
+    id = Column(Integer, primary_key=True)
+    url = Column(String(1000))
+    domain = Column(String(200))
+    category = Column(String(100))
+    network = Column(String(100))
+    geo = Column(String(100))
+
 
 
 class Lead(Base):
@@ -69,17 +80,6 @@ class Lead(Base):
     phone        = Column(String(50))
     utm_term     = Column(String(100), index=True)
 
-class OneprofitClickback(Base):
-    __tablename__ = "oneprofit_clickback"
-    id           = Column(Integer, primary_key=True)
-    amount       = Column(String(100))
-    stream       = Column(String(100))
-    subid1       = Column(String(100))
-    subid2       = Column(String(100))
-    subid3       = Column(String(100))
-    subid4       = Column(String(100))
-    subid5       = Column(String(100))
-    order_id     = Column(String(100))
 
 
 # ──────────────  создаём таблицы, если их нет  ─────────────
@@ -100,12 +100,12 @@ app.add_middleware(
 # ────────────────  Pydantic‑схемы входа  ────────────────
 class UTM(BaseModel):
     utm_source: str = ""
-    utm_medium: str = ""
-    utm_campaign: str = ""
-    utm_content: str = ""
-    utm_term: str = ""
-    utm_cpc: str = ""
-    utm_url: str = ""
+    site_id: str = ""
+    campaign_id: str = ""
+    teaser_id: str = ""
+    click_id: str = ""
+    cpc: str = ""
+    url: str = ""
     content: str = ""
     language: str = ""
     platform: str = ""
@@ -126,15 +126,62 @@ def get_db():
     finally:
         db.close()
 
+
+url_cache = {}
+CACHE_TTL = 120  # секунды
+
+def get_cached_urls(category: str, db: Session, ttl: int = CACHE_TTL):
+    now = time.time()
+    if category not in url_cache or now - url_cache[category]['last_updated'] > ttl:
+        urls = db.execute(
+            select(Urls).where(Urls.category == category)
+        ).scalars().all()
+        url_cache[category] = {
+            'urls': urls,
+            'last_updated': now
+        }
+    return url_cache[category]['urls']
+
 @app.get("/redirect/")
 async def redirect(request: Request, db: Session = Depends(get_db)):
-    utm_content = request.query_params.get('utm_content')
-    utm_term = request.query_params.get('utm_term')
+    query_params = request.query_params
+    utm_source = query_params.get("utm_source", "")
+    teaser_id = query_params.get("teaser_id", "")
+    campaign_id = query_params.get("campaign_id", "")
+    site_id = query_params.get("site_id", "")
+    cpc = query_params.get("cpc", "")
+    click_id = query_params.get("click_id", "")
+    content = query_params.get("content", "")
 
-    url = f'https://eolnm.bestaffaiirs.net/?utm_source=da57dc555e50572d&ban=push&j1=1&s1=15344&s2=2135046&s3={utm_content}&s5={utm_term}&click_id={utm_term}'
-    utms = UTM(**request.query_params)
-    asyncio.create_task(track_visit(utms, request, db))
-    return RedirectResponse(url)
+
+
+    urls = get_cached_urls(content, db)
+    if not urls:
+        return {"error": f"No URLs found for category '{content}'"}
+
+    url_obj = random.choice(urls)
+
+    # Подставляем параметры
+    redirect_url = url_obj.domain + url_obj.url
+    try:
+        final_url = redirect_url.format(teaser_id=teaser_id, 
+                                        click_id=click_id,
+                                        campaign_id=campaign_id,
+                                        site_id=site_id,
+                                        cpc=cpc,
+                                        content=content,
+                                        utm_source=utm_source)
+    except KeyError as e:
+        return {"error": f"Missing required parameter: {e}"}
+
+    # # Логгирование в фоне
+    # utms = UTM(**query_params)
+    # asyncio.create_task(track_visit(utms, request, db))
+
+    # return RedirectResponse(final_url)
+    return {"final_url": final_url}
+
+
 
 # ─────────────────────  /api/visit  ──────────────────────
 @app.post("/api/visit")
@@ -149,12 +196,12 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         ip=ip,
         user_agent=ua,
         utm_source=data.utm_source,
-        utm_medium=data.utm_medium,
-        utm_campaign=data.utm_campaign,
-        utm_content=data.utm_content,
-        utm_term=data.utm_term,
-        utm_cpc=data.utm_cpc,
-        utm_url=data.utm_url,
+        site_id=data.site_id,
+        campaign_id=data.campaign_id,
+        teaser_id=data.teaser_id,
+        click_id=data.click_id,
+        cpc=data.cpc,
+        url=data.url,
         content=data.content,
         language=language,
         platform=platform
@@ -234,6 +281,6 @@ def index():
     return {"hello": "world"}
 
 
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

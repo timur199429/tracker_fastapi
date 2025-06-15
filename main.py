@@ -174,12 +174,12 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
     except KeyError as e:
         return {"error": f"Missing required parameter: {e}"}
 
-    # # Логгирование в фоне
-    # utms = UTM(**query_params)
-    # asyncio.create_task(track_visit(utms, request, db))
+    # Логгирование в фоне
+    utms = UTM(**query_params)
+    asyncio.create_task(track_visit(utms, request, db))
 
-    # return RedirectResponse(final_url)
-    return {"final_url": final_url}
+    return RedirectResponse(final_url)
+    # return {"final_url": final_url}
 
 
 

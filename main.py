@@ -136,10 +136,16 @@ def get_cached_urls(category: str, db: Session, ttl: int = CACHE_TTL):
         urls = db.execute(
             select(Urls).where(Urls.category == category)
         ).scalars().all()
+
+        # Сохраняем только нужные данные (а не ORM-объекты)
         url_cache[category] = {
-            'urls': urls,
+            'urls': [
+                {"domain": url.domain, "url": url.url}
+                for url in urls
+            ],
             'last_updated': now
         }
+
     return url_cache[category]['urls']
 
 @app.get("/redirect/")
@@ -159,10 +165,9 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
     if not urls:
         return {"error": f"No URLs found for category '{content}'"}
 
-    url_obj = random.choice(urls)
 
-    # Подставляем параметры
-    redirect_url = url_obj.domain + url_obj.url
+    url_obj = random.choice(urls)
+    redirect_url = url_obj["domain"] + url_obj["url"]
     try:
         final_url = redirect_url.format(teaser_id=teaser_id, 
                                         click_id=click_id,
@@ -176,6 +181,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
 
     # Логгирование в фоне
     utms = UTM(**query_params)
+    utms['url'] = final_url
     asyncio.create_task(track_visit(utms, request, db))
 
     return RedirectResponse(final_url)

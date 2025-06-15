@@ -181,7 +181,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
 
     # Логгирование в фоне
     utms = UTM(**query_params)
-    utms['url'] = final_url
+    # utms['url'] = final_url
     asyncio.create_task(track_visit(utms, request, db))
 
     return RedirectResponse(final_url)

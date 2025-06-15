@@ -140,7 +140,7 @@ def get_cached_urls(category: str, db: Session, ttl: int = CACHE_TTL):
         # Сохраняем только нужные данные (а не ORM-объекты)
         url_cache[category] = {
             'urls': [
-                {"domain": url.domain, "url": url.url}
+                {"domain": url.domain, "url": url.url, 'network': url.network}
                 for url in urls
             ],
             'last_updated': now
@@ -180,8 +180,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
         return {"error": f"Missing required parameter: {e}"}
 
     # Логгирование в фоне
-    utms = UTM(**query_params)
-    # utms['url'] = final_url
+    utms = UTM(**query_params, url=url_obj['network'])
     asyncio.create_task(track_visit(utms, request, db))
 
     return RedirectResponse(final_url)
@@ -287,6 +286,6 @@ def index():
     return {"hello": "world"}
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

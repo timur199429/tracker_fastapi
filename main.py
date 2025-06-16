@@ -40,6 +40,7 @@ class Visit(Base):
     content      = Column(String(100))
     language     = Column(String(100))
     platform     = Column(String(100))
+    news_id      = Column(String(100))
 
 class Postback(Base):
     __tablename__ = "postback"
@@ -109,6 +110,7 @@ class UTM(BaseModel):
     content: str = ""
     language: str = ""
     platform: str = ""
+    news_id: str = ""
 
 
 class ContactForm(UTM):
@@ -158,6 +160,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
     cpc = query_params.get("cpc", "")
     click_id = query_params.get("click_id", "")
     content = query_params.get("content", "")
+    news_id = query_params.get("news_id", "")
 
 
 
@@ -175,7 +178,9 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
                                         site_id=site_id,
                                         cpc=cpc,
                                         content=content,
-                                        utm_source=utm_source)
+                                        utm_source=utm_source,
+                                        news_id=news_id
+                                        )
     except KeyError as e:
         return {"error": f"Missing required parameter: {e}"}
 
@@ -209,7 +214,8 @@ async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)
         url=data.url,
         content=data.content,
         language=language,
-        platform=platform
+        platform=platform,
+        news_id=data.news_id
     )
     db.add(visit)
     db.commit()

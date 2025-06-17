@@ -1,3 +1,4 @@
+import json
 import random
 import time
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -93,7 +94,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],              # желательно указать точный домен S3
-    allow_methods=["POST", "GET"],
+    allow_methods=["*"],
+    allow_credentials=True,
     allow_headers=["*"],
 )
 
@@ -150,76 +152,76 @@ def get_cached_urls(category: str, db: Session, ttl: int = CACHE_TTL):
 
     return url_cache[category]['urls']
 
-@app.get("/redirect/")
-async def redirect(request: Request, db: Session = Depends(get_db)):
-    query_params = request.query_params
-    utm_source = query_params.get("utm_source", "")
-    teaser_id = query_params.get("teaser_id", "")
-    campaign_id = query_params.get("campaign_id", "")
-    site_id = query_params.get("site_id", "")
-    cpc = query_params.get("cpc", "")
-    click_id = query_params.get("click_id", "")
-    content = query_params.get("content", "")
-    news_id = query_params.get("news_id", "")
-
-
-
-    urls = get_cached_urls(content, db)
-    if not urls:
-        return {"error": f"No URLs found for category '{content}'"}
-
-
-    url_obj = random.choice(urls)
-    redirect_url = url_obj["domain"] + url_obj["url"]
-    try:
-        final_url = redirect_url.format(teaser_id=teaser_id, 
-                                        click_id=click_id,
-                                        campaign_id=campaign_id,
-                                        site_id=site_id,
-                                        cpc=cpc,
-                                        content=content,
-                                        utm_source=utm_source,
-                                        news_id=news_id
-                                        )
-    except KeyError as e:
-        return {"error": f"Missing required parameter: {e}"}
-
-    # Логгирование в фоне
-    utms = UTM(**query_params, url=url_obj['network'])
-    asyncio.create_task(track_visit(utms, request, db))
-
-    return RedirectResponse(final_url)
-    # return {"final_url": final_url}
-
-
-
-# ─────────────────────  /api/visit  ──────────────────────
-@app.post("/api/visit")
-async def track_visit(data: UTM, request: Request, db: Session = Depends(get_db)):
+async def save_visit(data: dict, request: Request, db: Session):
     ip = request.headers.get("x-real-ip", "")
     ua = request.headers.get("user-agent", "")
     language = request.headers.get("accept-language", "")
     platform = request.headers.get("sec-ch-ua-platform", "")
 
-
     visit = Visit(
         ip=ip,
         user_agent=ua,
-        utm_source=data.utm_source,
-        site_id=data.site_id,
-        campaign_id=data.campaign_id,
-        teaser_id=data.teaser_id,
-        click_id=data.click_id,
-        cpc=data.cpc,
-        url=data.url,
-        content=data.content,
+        utm_source=data.get("utm_source", ""),
+        site_id=data.get("site_id", ""),
+        campaign_id=data.get("campaign_id", ""),
+        teaser_id=data.get("teaser_id", ""),
+        click_id=data.get("click_id", ""),
+        cpc=data.get("cpc", ""),
+        url=data.get("url", ""),
+        content=data.get("content", ""),
         language=language,
         platform=platform,
-        news_id=data.news_id
+        news_id=data.get("news_id", "")
     )
+
     db.add(visit)
     db.commit()
-    return {"status": "ok", "id": visit.id}
+    return visit.id
+
+@app.get("/redirect/")
+async def redirect(request: Request, db: Session = Depends(get_db)):
+    query = request.query_params
+
+    urls = get_cached_urls(query.get("content", ""), db)
+    if not urls:
+        return {"error": f"No URLs found for category '{query.get('content')}'"}
+
+    url_obj = random.choice(urls)
+    try:
+        final_url = (url_obj["domain"] + url_obj["url"]).format(
+            teaser_id=query.get("teaser_id", ""),
+            click_id=query.get("click_id", ""),
+            campaign_id=query.get("campaign_id", ""),
+            site_id=query.get("site_id", ""),
+            cpc=query.get("cpc", ""),
+            content=query.get("content", ""),
+            utm_source=query.get("utm_source", ""),
+            news_id=query.get("news_id", "")
+        )
+    except KeyError as e:
+        return {"error": f"Missing parameter: {e}"}
+
+    # Формируем словарь из query + url сети
+    log_data = dict(query)
+    log_data["url"] = url_obj.get("network", "")
+
+    # Лог в фоне
+    asyncio.create_task(save_visit(log_data, request, db))
+
+    return RedirectResponse(final_url)
+
+
+
+# ─────────────────────  /api/visit  ──────────────────────
+@app.post("/api/visit")
+async def track_visit(request: Request, db: Session = Depends(get_db)):
+    try:
+        data = json.loads(await request.body())
+    except Exception as e:
+        return {"status": "error", "detail": f"Invalid JSON: {e}"}
+
+    visit_id = await save_visit(data, request, db)
+    return {"status": "ok", "id": visit_id}
 
 @app.get('/api/postback')
 async def postback(request: Request,
@@ -292,6 +294,6 @@ def index():
     return {"hello": "world"}
 
 
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

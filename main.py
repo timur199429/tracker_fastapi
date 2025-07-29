@@ -13,10 +13,13 @@ from starlette.status import HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERRO
 import os
 import httpx
 import asyncio
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # ──────────────────  НАСТРОЙ MySQL  ──────────────────
-database_url = f"mysql+pymysql://gen_user:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:3306/default_db"
+# database_url = f"mysql+pymysql://gen_user:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:3306/default_db"
+database_url = f"postgresql+psycopg2://gen_user:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:5432/default_db"
 
 
 engine = create_engine(database_url, echo=False)
@@ -28,7 +31,7 @@ Base = declarative_base()
 class Visit(Base):
     __tablename__ = "visits"
     id           = Column(Integer, primary_key=True)
-    ts           = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), index=True)
+    ts           = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     ip           = Column(String(45))
     user_agent   = Column(Text)
     utm_source   = Column(String(100))

@@ -1,8 +1,11 @@
 fastapi
 uvicorn
 pydantic
-pymysql
+# pymysql
 sqlalchemy
 cryptography
 httpx
 asyncio
+# psycopg2-binary
+psycopg2
+python-dotenv
